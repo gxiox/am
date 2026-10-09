@@ -1,33 +1,79 @@
 
---// Auto Buy UI | Roblox
---// Coins / Gems / Both | Every 60 seconds
+--// Auto Buy Trait UI - Cloud Phone UI Fix
+--// Coins / Gems / Both
+--// Repeat every 60 seconds
 
 local Players = game:GetService("Players")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local CoreGui = game:GetService("CoreGui")
 
 local Player = Players.LocalPlayer
-local Event = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("BuyItem")
+if not Player then
+    warn("[AutoBuy Trait] LocalPlayer not found")
+    return
+end
 
--- ป้องกัน UI ซ้ำ
-local GUI_NAME = "AutoBuyController"
-local Parent = (gethui and gethui()) or Player:WaitForChild("PlayerGui")
+local GUI_NAME = "AutoBuyTraitUI"
 
-local Old = Parent:FindFirstChild(GUI_NAME)
-if Old then Old:Destroy() end
+--// Safely select GUI parent
+local Parent
+local gethuiFunc
 
+pcall(function()
+    gethuiFunc = gethui
+end)
+
+if type(gethuiFunc) == "function" then
+    local ok, result = pcall(gethuiFunc)
+    if ok and typeof(result) == "Instance" then
+        Parent = result
+    end
+end
+
+if not Parent then
+    local ok, result = pcall(function()
+        return Player:WaitForChild("PlayerGui", 10)
+    end)
+    if ok then
+        Parent = result
+    end
+end
+
+if not Parent then
+    warn("[AutoBuy Trait] Cannot access GUI parent")
+    return
+end
+
+--// Remove old UI
+pcall(function()
+    local old = Parent:FindFirstChild(GUI_NAME)
+    if old then old:Destroy() end
+end)
+
+--// Create UI first; do not wait for Remote here
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = GUI_NAME
 ScreenGui.ResetOnSpawn = false
-ScreenGui.Parent = Parent
+ScreenGui.IgnoreGuiInset = true
+ScreenGui.DisplayOrder = 999
+ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+
+local guiOK, guiErr = pcall(function()
+    ScreenGui.Parent = Parent
+end)
+
+if not guiOK then
+    warn("[AutoBuy Trait] GUI parent error:", guiErr)
+    return
+end
 
 local Frame = Instance.new("Frame")
+Frame.Name = "Main"
 Frame.Size = UDim2.new(0, 290, 0, 285)
 Frame.Position = UDim2.new(0.5, -145, 0.5, -142)
 Frame.BackgroundColor3 = Color3.fromRGB(22, 24, 32)
 Frame.BorderSizePixel = 0
 Frame.Active = true
-Frame.Draggable = true
+Frame.Visible = true
 Frame.Parent = ScreenGui
 
 local Corner = Instance.new("UICorner")
@@ -63,118 +109,175 @@ local function makeButton(text, pos, size, parent, color)
     obj.TextSize = 13
     obj.Font = Enum.Font.GothamBold
     obj.AutoButtonColor = true
+    obj.Active = true
     obj.Parent = parent
 
     local c = Instance.new("UICorner")
     c.CornerRadius = UDim.new(0, 7)
     c.Parent = obj
+
     return obj
 end
 
-makeLabel("AUTO BUY", UDim2.new(0, 15, 0, 10),
-    UDim2.new(1, -55, 0, 28), Frame).TextSize = 18
+makeLabel(
+    "AUTO BUY TRAIT",
+    UDim2.new(0, 15, 0, 10),
+    UDim2.new(1, -55, 0, 28),
+    Frame
+).TextSize = 18
 
-local Close = makeButton("×", UDim2.new(1, -38, 0, 9),
-    UDim2.new(0, 27, 0, 27), Frame, Color3.fromRGB(155, 55, 65))
+local Close = makeButton(
+    "×", UDim2.new(1, -38, 0, 9),
+    UDim2.new(0, 27, 0, 27), Frame,
+    Color3.fromRGB(155, 55, 65)
+)
 
-local ModeLabel = makeLabel("Purchase mode", UDim2.new(0, 15, 0, 49),
-    UDim2.new(1, -30, 0, 22), Frame)
+local ModeLabel = makeLabel(
+    "Purchase mode",
+    UDim2.new(0, 15, 0, 49),
+    UDim2.new(1, -30, 0, 22), Frame
+)
 ModeLabel.TextXAlignment = Enum.TextXAlignment.Left
 
 local selected = "Both"
 
-local CoinsBtn = makeButton("COINS", UDim2.new(0, 15, 0, 78),
-    UDim2.new(0, 82, 0, 36), Frame, Color3.fromRGB(48, 52, 68))
+local CoinsBtn = makeButton(
+    "COINS", UDim2.new(0, 15, 0, 78),
+    UDim2.new(0, 82, 0, 36), Frame,
+    Color3.fromRGB(48, 52, 68)
+)
 
-local GemsBtn = makeButton("GEMS", UDim2.new(0, 104, 0, 78),
-    UDim2.new(0, 82, 0, 36), Frame, Color3.fromRGB(48, 52, 68))
+local GemsBtn = makeButton(
+    "GEMS", UDim2.new(0, 104, 0, 78),
+    UDim2.new(0, 82, 0, 36), Frame,
+    Color3.fromRGB(48, 52, 68)
+)
 
-local BothBtn = makeButton("BOTH", UDim2.new(0, 193, 0, 78),
-    UDim2.new(0, 82, 0, 36), Frame, Color3.fromRGB(65, 105, 190))
+local BothBtn = makeButton(
+    "BOTH", UDim2.new(0, 193, 0, 78),
+    UDim2.new(0, 82, 0, 36), Frame,
+    Color3.fromRGB(65, 105, 190)
+)
 
-local Status = makeLabel("Status: STOPPED", UDim2.new(0, 15, 0, 127),
-    UDim2.new(1, -30, 0, 24), Frame)
+local Status = makeLabel(
+    "Status: STOPPED",
+    UDim2.new(0, 15, 0, 127),
+    UDim2.new(1, -30, 0, 24), Frame
+)
 Status.TextXAlignment = Enum.TextXAlignment.Left
+Status.TextColor3 = Color3.fromRGB(240, 130, 130)
 
-local ModeStatus = makeLabel("Selected: Both", UDim2.new(0, 15, 0, 151),
-    UDim2.new(1, -30, 0, 22), Frame)
+local ModeStatus = makeLabel(
+    "Selected: Both",
+    UDim2.new(0, 15, 0, 151),
+    UDim2.new(1, -30, 0, 22), Frame
+)
 ModeStatus.TextXAlignment = Enum.TextXAlignment.Left
 ModeStatus.TextColor3 = Color3.fromRGB(170, 180, 205)
 
-local StartBtn = makeButton("START AUTO BUY",
-    UDim2.new(0, 15, 0, 187), UDim2.new(1, -30, 0, 42),
-    Frame, Color3.fromRGB(35, 145, 95))
+local StartBtn = makeButton(
+    "START AUTO BUY",
+    UDim2.new(0, 15, 0, 187),
+    UDim2.new(1, -30, 0, 42), Frame,
+    Color3.fromRGB(35, 145, 95)
+)
 
-makeLabel("Repeat interval: 60 seconds",
-    UDim2.new(0, 15, 0, 240), UDim2.new(1, -30, 0, 24),
-    Frame).TextColor3 = Color3.fromRGB(155, 165, 190)
+makeLabel(
+    "Repeat interval: 60 seconds",
+    UDim2.new(0, 15, 0, 240),
+    UDim2.new(1, -30, 0, 24), Frame
+).TextColor3 = Color3.fromRGB(155, 165, 190)
 
-local running = false
-local runId = 0
+--// Drag support
+pcall(function()
+    Frame.Draggable = true
+end)
 
+--// Mode selection
 local function refreshMode()
-    CoinsBtn.BackgroundColor3 = selected == "Coins"
-        and Color3.fromRGB(65, 105, 190)
-        or Color3.fromRGB(48, 52, 68)
+    local active = Color3.fromRGB(65, 105, 190)
+    local inactive = Color3.fromRGB(48, 52, 68)
 
-    GemsBtn.BackgroundColor3 = selected == "Gems"
-        and Color3.fromRGB(65, 105, 190)
-        or Color3.fromRGB(48, 52, 68)
-
-    BothBtn.BackgroundColor3 = selected == "Both"
-        and Color3.fromRGB(65, 105, 190)
-        or Color3.fromRGB(48, 52, 68)
+    CoinsBtn.BackgroundColor3 =
+        selected == "Coins" and active or inactive
+    GemsBtn.BackgroundColor3 =
+        selected == "Gems" and active or inactive
+    BothBtn.BackgroundColor3 =
+        selected == "Both" and active or inactive
 
     ModeStatus.Text = "Selected: " .. selected
 end
 
-CoinsBtn.MouseButton1Click:Connect(function()
+CoinsBtn.Activated:Connect(function()
     selected = "Coins"
     refreshMode()
 end)
 
-GemsBtn.MouseButton1Click:Connect(function()
+GemsBtn.Activated:Connect(function()
     selected = "Gems"
     refreshMode()
 end)
 
-BothBtn.MouseButton1Click:Connect(function()
+BothBtn.Activated:Connect(function()
     selected = "Both"
     refreshMode()
 end)
 
-local function buyItem(itemName, currency)
-    local success, err = pcall(function()
-        Event:InvokeServer(itemName, 1, currency)
+--// Resolve Remote only when needed
+local function buyItem(currency)
+    local ok, result = pcall(function()
+        local ReplicatedStorage =
+            game:GetService("ReplicatedStorage")
+
+        local remotes =
+            ReplicatedStorage:WaitForChild("Remotes", 10)
+
+        if not remotes then
+            error("Remotes folder not found")
+        end
+
+        local event = remotes:WaitForChild("BuyItem", 10)
+        if not event then
+            error("BuyItem Remote not found")
+        end
+
+        return event:InvokeServer("Trait", 1, currency)
     end)
 
-    if not success then
-        warn("[AutoBuy] Failed:", itemName, err)
+    if not ok then
+        warn("[AutoBuy Trait] " .. currency .. ": " .. tostring(result))
+        Status.Text = "Status: ERROR - check Console"
+        Status.TextColor3 = Color3.fromRGB(255, 150, 100)
     end
 end
 
 local function purchaseSelected()
-    -- ซื้อ Fruit ด้วย Coins
-    if selected == "Coins" or selected == "Both" then
-        buyItem("Fruit_1", "Coins")
+    local mode = selected
+
+    if mode == "Coins" or mode == "Both" then
+        buyItem("Coins")
     end
 
-    -- ซื้อ Trait ด้วย Gems
-    if selected == "Gems" or selected == "Both" then
-        buyItem("Trait", "Gems")
+    if mode == "Gems" or mode == "Both" then
+        buyItem("Gems")
     end
 end
+
+--// Auto loop
+local running = false
+local runId = 0
 
 local function stopAuto()
     running = false
     runId += 1
+
     Status.Text = "Status: STOPPED"
     Status.TextColor3 = Color3.fromRGB(240, 130, 130)
     StartBtn.Text = "START AUTO BUY"
     StartBtn.BackgroundColor3 = Color3.fromRGB(35, 145, 95)
 end
 
-StartBtn.MouseButton1Click:Connect(function()
+StartBtn.Activated:Connect(function()
     if running then
         stopAuto()
         return
@@ -193,19 +296,20 @@ StartBtn.MouseButton1Click:Connect(function()
         while running and runId == myRunId do
             purchaseSelected()
 
-            -- รอ 60 วินาทีก่อนรอบถัดไป
-            local elapsed = 0
-            while elapsed < 60 and running and runId == myRunId do
-                local dt = task.wait(1)
-                elapsed += dt
+            for i = 1, 60 do
+                if not running or runId ~= myRunId then
+                    break
+                end
+                task.wait(1)
             end
         end
     end)
 end)
 
-Close.MouseButton1Click:Connect(function()
+Close.Activated:Connect(function()
     stopAuto()
     ScreenGui:Destroy()
 end)
 
 refreshMode()
+print("[AutoBuy Trait] UI created successfully")
