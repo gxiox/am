@@ -1,0 +1,264 @@
+
+--// Auto Buy Trait UI
+--// Coins / Gems / Both
+--// Repeat every 60 seconds
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Player = Players.LocalPlayer
+local Event = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("BuyItem")
+
+local Parent = (gethui and gethui()) or Player:WaitForChild("PlayerGui")
+local GUI_NAME = "AutoBuyTraitUI"
+
+local Old = Parent:FindFirstChild(GUI_NAME)
+if Old then
+    Old:Destroy()
+end
+
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = GUI_NAME
+ScreenGui.ResetOnSpawn = false
+ScreenGui.Parent = Parent
+
+local Frame = Instance.new("Frame")
+Frame.Size = UDim2.new(0, 290, 0, 285)
+Frame.Position = UDim2.new(0.5, -145, 0.5, -142)
+Frame.BackgroundColor3 = Color3.fromRGB(22, 24, 32)
+Frame.BorderSizePixel = 0
+Frame.Active = true
+Frame.Draggable = true
+Frame.Parent = ScreenGui
+
+local Corner = Instance.new("UICorner")
+Corner.CornerRadius = UDim.new(0, 12)
+Corner.Parent = Frame
+
+local Stroke = Instance.new("UIStroke")
+Stroke.Color = Color3.fromRGB(75, 90, 125)
+Stroke.Thickness = 1.3
+Stroke.Parent = Frame
+
+local function makeLabel(text, pos, size, parent)
+    local obj = Instance.new("TextLabel")
+    obj.Size = size
+    obj.Position = pos
+    obj.BackgroundTransparency = 1
+    obj.Text = text
+    obj.TextColor3 = Color3.fromRGB(240, 243, 255)
+    obj.TextSize = 14
+    obj.Font = Enum.Font.GothamMedium
+    obj.Parent = parent
+    return obj
+end
+
+local function makeButton(text, pos, size, parent, color)
+    local obj = Instance.new("TextButton")
+    obj.Size = size
+    obj.Position = pos
+    obj.BackgroundColor3 = color
+    obj.BorderSizePixel = 0
+    obj.Text = text
+    obj.TextColor3 = Color3.fromRGB(255, 255, 255)
+    obj.TextSize = 13
+    obj.Font = Enum.Font.GothamBold
+    obj.AutoButtonColor = true
+    obj.Parent = parent
+
+    local c = Instance.new("UICorner")
+    c.CornerRadius = UDim.new(0, 7)
+    c.Parent = obj
+
+    return obj
+end
+
+makeLabel(
+    "AUTO BUY TRAIT",
+    UDim2.new(0, 15, 0, 10),
+    UDim2.new(1, -55, 0, 28),
+    Frame
+).TextSize = 18
+
+local Close = makeButton(
+    "×",
+    UDim2.new(1, -38, 0, 9),
+    UDim2.new(0, 27, 0, 27),
+    Frame,
+    Color3.fromRGB(155, 55, 65)
+)
+
+local ModeLabel = makeLabel(
+    "Purchase mode",
+    UDim2.new(0, 15, 0, 49),
+    UDim2.new(1, -30, 0, 22),
+    Frame
+)
+ModeLabel.TextXAlignment = Enum.TextXAlignment.Left
+
+local selected = "Both"
+
+local CoinsBtn = makeButton(
+    "COINS",
+    UDim2.new(0, 15, 0, 78),
+    UDim2.new(0, 82, 0, 36),
+    Frame,
+    Color3.fromRGB(48, 52, 68)
+)
+
+local GemsBtn = makeButton(
+    "GEMS",
+    UDim2.new(0, 104, 0, 78),
+    UDim2.new(0, 82, 0, 36),
+    Frame,
+    Color3.fromRGB(48, 52, 68)
+)
+
+local BothBtn = makeButton(
+    "BOTH",
+    UDim2.new(0, 193, 0, 78),
+    UDim2.new(0, 82, 0, 36),
+    Frame,
+    Color3.fromRGB(65, 105, 190)
+)
+
+local Status = makeLabel(
+    "Status: STOPPED",
+    UDim2.new(0, 15, 0, 127),
+    UDim2.new(1, -30, 0, 24),
+    Frame
+)
+Status.TextXAlignment = Enum.TextXAlignment.Left
+Status.TextColor3 = Color3.fromRGB(240, 130, 130)
+
+local ModeStatus = makeLabel(
+    "Selected: Both",
+    UDim2.new(0, 15, 0, 151),
+    UDim2.new(1, -30, 0, 22),
+    Frame
+)
+ModeStatus.TextXAlignment = Enum.TextXAlignment.Left
+ModeStatus.TextColor3 = Color3.fromRGB(170, 180, 205)
+
+local StartBtn = makeButton(
+    "START AUTO BUY",
+    UDim2.new(0, 15, 0, 187),
+    UDim2.new(1, -30, 0, 42),
+    Frame,
+    Color3.fromRGB(35, 145, 95)
+)
+
+makeLabel(
+    "Repeat interval: 60 seconds",
+    UDim2.new(0, 15, 0, 240),
+    UDim2.new(1, -30, 0, 24),
+    Frame
+).TextColor3 = Color3.fromRGB(155, 165, 190)
+
+local running = false
+local runId = 0
+
+local function refreshMode()
+    CoinsBtn.BackgroundColor3 =
+        selected == "Coins"
+        and Color3.fromRGB(65, 105, 190)
+        or Color3.fromRGB(48, 52, 68)
+
+    GemsBtn.BackgroundColor3 =
+        selected == "Gems"
+        and Color3.fromRGB(65, 105, 190)
+        or Color3.fromRGB(48, 52, 68)
+
+    BothBtn.BackgroundColor3 =
+        selected == "Both"
+        and Color3.fromRGB(65, 105, 190)
+        or Color3.fromRGB(48, 52, 68)
+
+    ModeStatus.Text = "Selected: " .. selected
+end
+
+CoinsBtn.MouseButton1Click:Connect(function()
+    selected = "Coins"
+    refreshMode()
+end)
+
+GemsBtn.MouseButton1Click:Connect(function()
+    selected = "Gems"
+    refreshMode()
+end)
+
+BothBtn.MouseButton1Click:Connect(function()
+    selected = "Both"
+    refreshMode()
+end)
+
+local function buyItem(currency)
+    local success, err = pcall(function()
+        Event:InvokeServer("Trait", 1, currency)
+    end)
+
+    if not success then
+        warn("[AutoBuy Trait] Failed:", currency, err)
+    end
+end
+
+local function purchaseSelected()
+    if selected == "Coins" or selected == "Both" then
+        buyItem("Coins")
+    end
+
+    if selected == "Gems" or selected == "Both" then
+        buyItem("Gems")
+    end
+end
+
+local function stopAuto()
+    running = false
+    runId += 1
+
+    Status.Text = "Status: STOPPED"
+    Status.TextColor3 = Color3.fromRGB(240, 130, 130)
+
+    StartBtn.Text = "START AUTO BUY"
+    StartBtn.BackgroundColor3 = Color3.fromRGB(35, 145, 95)
+end
+
+StartBtn.MouseButton1Click:Connect(function()
+    if running then
+        stopAuto()
+        return
+    end
+
+    running = true
+    runId += 1
+
+    local myRunId = runId
+
+    Status.Text = "Status: RUNNING"
+    Status.TextColor3 = Color3.fromRGB(100, 230, 155)
+
+    StartBtn.Text = "STOP AUTO BUY"
+    StartBtn.BackgroundColor3 = Color3.fromRGB(175, 60, 70)
+
+    task.spawn(function()
+        while running and runId == myRunId do
+            purchaseSelected()
+
+            local elapsed = 0
+
+            while elapsed < 60
+                and running
+                and runId == myRunId do
+
+                elapsed += task.wait(1)
+            end
+        end
+    end)
+end)
+
+Close.MouseButton1Click:Connect(function()
+    stopAuto()
+    ScreenGui:Destroy()
+end)
+
+refreshMode()
